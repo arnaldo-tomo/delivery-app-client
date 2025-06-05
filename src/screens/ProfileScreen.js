@@ -1,25 +1,33 @@
-// src/screens/ProfileScreen.js
 import React from 'react';
 import {
   View,
   Text,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  StatusBar,
+  Image,
+  Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 
 const colors = {
-  primary: '#FE3801',
-  text: '#0B0C17',
-  textLight: '#32354E',
-  gray: '#A4A5B0',
-  grayLight: '#EDEDEF',
-  white: '#FFFFFF',
+  primary: '#FF6B35',
+  primaryDark: '#FF4500',
+  secondary: '#FFB800',
+  accent: '#00C896',
+  background: '#FAFBFC',
+  surface: '#FFFFFF',
+  text: '#1A1D23',
+  textSecondary: '#6B7280',
+  textLight: '#9CA3AF',
+  border: '#E5E7EB',
+  error: '#EF4444',
 };
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
 
   function handleSignOut() {
@@ -32,63 +40,133 @@ export default function ProfileScreen() {
       ]
     );
   }
-
-  const menuItems = [
+  const profileOptions = [
     {
       icon: 'person-outline',
-      title: 'Dados pessoais',
-      onPress: () => {},
+      title: 'Dados Pessoais',
+      subtitle: 'Editar informações do perfil',
+      onPress: () => {}, // Implementar depois
     },
     {
       icon: 'location-outline',
       title: 'Endereços',
-      onPress: () => {},
+      subtitle: 'Gerenciar endereços de entrega',
+      onPress: () => {}, // Implementar depois
+    },
+    {
+      icon: 'heart-outline',
+      title: 'Favoritos',
+      subtitle: 'Restaurantes e pratos salvos',
+      onPress: () => {}, // Implementar depois
     },
     {
       icon: 'card-outline',
-      title: 'Formas de pagamento',
-      onPress: () => {},
+      title: 'Métodos de Pagamento',
+      subtitle: 'Gerenciar formas de pagamento',
+      onPress: () => {}, // Implementar depois
+    },
+    {
+      icon: 'notifications-outline',
+      title: 'Notificações',
+      subtitle: 'Configurar alertas e avisos',
+      onPress: () => {}, // Implementar depois
     },
     {
       icon: 'help-circle-outline',
-      title: 'Ajuda',
-      onPress: () => {},
+      title: 'Ajuda e Suporte',
+      subtitle: 'Central de ajuda e contato',
+      onPress: () => {}, // Implementar depois
     },
     {
-      icon: 'settings-outline',
-      title: 'Configurações',
-      onPress: () => {},
+      icon: 'log-out-outline',
+      title: 'Sair',
+      subtitle: 'Fazer logout da conta',
+      onPress: handleSignOut,
+      isDangerous: true,
     },
   ];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Perfil</Text>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       
-      <View style={styles.userInfo}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={40} color={colors.primary} />
+      {/* Header */}
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark]}
+        style={styles.header}
+      >
+        <View style={styles.profileInfo}>
+          <View style={styles.avatarContainer}>
+            <Image
+              source={{ uri: user?.avatar || 'https://via.placeholder.com/80x80' }}
+              style={styles.avatar}
+            />
+            <TouchableOpacity style={styles.editAvatarButton}>
+              <Ionicons name="camera" size={16} color={colors.surface} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{user?.name || 'Usuário'}</Text>
+            <Text style={styles.userEmail}>{user?.email || 'email@exemplo.com'}</Text>
+            <View style={styles.userStats}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>12</Text>
+                <Text style={styles.statLabel}>Pedidos</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>4.8</Text>
+                <Text style={styles.statLabel}>Avaliação</Text>
+              </View>
+            </View>
+          </View>
         </View>
-        <View style={styles.userDetails}>
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-        </View>
-      </View>
+      </LinearGradient>
 
-      <View style={styles.menu}>
-        {menuItems.map((item, index) => (
-          <TouchableOpacity key={index} style={styles.menuItem} onPress={item.onPress}>
-            <Ionicons name={item.icon} size={24} color={colors.gray} />
-            <Text style={styles.menuText}>{item.title}</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.gray} />
+      {/* Options */}
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {profileOptions.map((option, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[
+              styles.optionCard,
+              option.isDangerous && styles.optionCardDangerous
+            ]}
+            onPress={option.onPress}
+          >
+            <View style={[
+              styles.optionIcon,
+              option.isDangerous && styles.optionIconDangerous
+            ]}>
+              <Ionicons 
+                name={option.icon} 
+                size={24} 
+                color={option.isDangerous ? colors.error : colors.primary} 
+              />
+            </View>
+            
+            <View style={styles.optionContent}>
+              <Text style={[
+                styles.optionTitle,
+                option.isDangerous && styles.optionTitleDangerous
+              ]}>
+                {option.title}
+              </Text>
+              <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+            </View>
+            
+            <Ionicons 
+              name="chevron-forward" 
+              size={20} 
+              color={colors.textLight} 
+            />
           </TouchableOpacity>
         ))}
-      </View>
-
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Ionicons name="log-out-outline" size={24} color={colors.primary} />
-        <Text style={styles.signOutText}>Sair da conta</Text>
-      </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 }
@@ -96,73 +174,130 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
+  },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 30,
     paddingHorizontal: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 60,
-    marginBottom: 32,
-  },
-  userInfo: {
+  profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayLight,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 20,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.grayLight,
+    borderWidth: 3,
+    borderColor: colors.surface,
+  },
+  editAvatarButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
-  userDetails: {
+  userInfo: {
     flex: 1,
   },
   userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.surface,
     marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    color: colors.textLight,
+    color: colors.surface,
+    opacity: 0.9,
+    marginBottom: 16,
   },
-  menu: {
-    flex: 1,
-  },
-  menuItem: {
+  userStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.grayLight,
   },
-  menuText: {
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.surface,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.surface,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.surface,
+    opacity: 0.3,
+    marginHorizontal: 20,
+  },
+  content: {
     flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    marginLeft: 16,
+    marginTop: -20,
+    marginBottom: 89,
   },
-  signOutButton: {
+  optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  optionCardDangerous: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.error,
+  },
+  optionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background,
     justifyContent: 'center',
-    paddingVertical: 16,
-    marginBottom: 40,
+    alignItems: 'center',
+    marginRight: 16,
   },
-  signOutText: {
+  optionIconDangerous: {
+    backgroundColor: colors.error + '10',
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionTitle: {
     fontSize: 16,
-    color: colors.primary,
     fontWeight: '600',
-    marginLeft: 8,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  optionTitleDangerous: {
+    color: colors.error,
+  },
+  optionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });
