@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "permissions": [
+      "LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -18,8 +23,22 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
+        "backgroundColor": "#ffffff",
+        "permissions": [
+          "ACCESS_FINE_LOCATION",
+          "ACCESS_COARSE_LOCATION"
+        ],
+        "config": {
+          "googleMaps": {
+          "apiKey": "AIzaSyAtu-ig_-9TgJwxRqhTMrnDLF1HgeTxm1c"
+          }
+        },
+        
+      },"ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Este app precisa de acesso à localização para mostrar restaurantes próximos e rastrear entregas."
+      }
+    },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyAtu-ig_-9TgJwxRqhTMrnDLF1HgeTxm1c"
@@ -31,12 +50,19 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      ["expo-notifications", { "icon": "./assets/notification-icon.png" }],
       [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      }
+    }
   }
+  
 }
