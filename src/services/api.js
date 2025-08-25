@@ -1,63 +1,53 @@
-
-// src/services/api.js - Versão com melhor tratamento de erros
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://192.168.100.6:2021/api/v1';
+// CONFIGURAÇÃO DA BASE URL - AJUSTE PARA SEU SERVIDOR
+const API_BASE_URL = 'http://192.168.58.104:8000/api/v1'; // ← AJUSTE AQUI
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  }
+  },
 });
 
 let authToken = null;
 
 // Interceptor para adicionar token automaticamente
-api.interceptors.request.use(
-  (config) => {
-    if (authToken) {
-      config.headers.Authorization = `Bearer ${authToken}`;
+api.interceptors.request.use(async (config) => {
+  if (!authToken) {
+    const token = await AsyncStorage.getItem('@deliveryapp:token');
+    if (token) {
+      authToken = token;
     }
-    console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.log('❌ Request Error:', error);
-    return Promise.reject(error);
   }
-);
+  
+  if (authToken) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  
+  return config;
+});
 
-// Interceptor melhorado para respostas
+// Interceptor para tratar respostas
 api.interceptors.response.use(
-  (response) => {
-    console.log(`✅ API Response: ${response.config.url} - Status: ${response.status}`);
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.log(`❌ API Error: ${error.config?.url} - ${error.message}`);
+    console.log('❌ API Error:', error.response?.data || error.message);
     
-    // Log detalhado do erro 500
-    if (error.response?.status === 500) {
-      console.log('🔍 Erro 500 detalhes:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data,
-        headers: error.config?.headers,
-        response: error.response?.data
-      });
-    }
-    
+    // Token expirado - fazer logout
     if (error.response?.status === 401) {
       removeAuthToken();
+      // Aqui você pode redirecionar para login se necessário
     }
     
     return Promise.reject(error);
   }
 );
 
+// === FUNÇÕES DE AUTENTICAÇÃO ===
 export function setAuthToken(token) {
   authToken = token;
   api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -68,398 +58,384 @@ export function removeAuthToken() {
   delete api.defaults.headers.common['Authorization'];
 }
 
-// APIs com tratamento melhorado
-export const getRestaurants = async (params = {}) => {
-  try {
-    const queryString = new URLSearchParams(params).toString();
-    const response = await api.get(`/restaurants${queryString ? `?${queryString}` : ''}`);
-    return response;
-  } catch (error) {
-    console.log('❌ Erro ao buscar restaurantes:', error.response?.data || error.message);
-    throw error;
-  }
-};
+// === AUTH ENDPOINTS ===
+export const login = (email, password) => 
+  api.post('/auth/login', { email, password });
 
-// Categories endpoints
-export const getCategories = async () => {
-  try {
-    const response = await api.get('/categories');
-    return response;
-  } catch (error) {
-    console.log('❌ Erro ao buscar categorias:', error.response?.data || error.message);
-    throw error;
-  }
-};
+export const logout = () => 
+  api.post('/auth/logout');
 
+export const register = (userData) => 
+  api.post('/auth/register', userData);
 
-export const getCategory = (id) =>
-  api.get(`/categories/${id}`);
+export const getProfile = () => 
+  api.get('/auth/me');
 
+// === PEDIDOS ENDPOINTS (PRINCIPAIS) ===
 
-// User/Profile endpoints
-export const getProfile = () =>
-  api.get('/user/profile');
+/**
+ * Lista todos os pedidos do usuário
+ * GET /api/v1/orders
+ */
+export const getMyOrders = (page = 1, perPage = 15) => 
+  api.get('/orders', { params: { page, per_page: perPage } });
 
-export const updateProfile = (userData) =>
-  api.put('/user/profile', userData);
+/**
+ * Criar um novo pedido
+ * POST /api/v1/orders
+ */
+export const createOrder = (orderData) => 
+  api.post('/orders', orderData);
 
-export const updatePassword = (passwordData) =>
-  api.put('/user/password', passwordData);
+/**
+ * Ver detalhes de um pedido específico
+ * GET /api/v1/orders/{orderId}
+ */
+export const getOrderDetails = (orderId) => 
+  api.get(`/orders/${orderId}`);
 
-// Address endpoints
-export const getAddresses = () =>
-  api.get('/user/addresses');
+/**
+ * Cancelar pedido
+ * PATCH /api/v1/orders/{orderId}/cancel
+ */
+export const cancelOrder = (orderId, reason = '') => 
+  api.patch(`/orders/${orderId}/cancel`, { reason });
 
-export const createAddress = (addressData) =>
-  api.post('/user/addresses', addressData);
+/**
+ * Rastrear pedido (informações de entrega em tempo real)
+ * GET /api/v1/orders/{orderId}/track
+ */
+export const trackOrder = (orderId) => 
+  api.get(`/orders/${orderId}/track`);
 
-export const updateAddress = (id, addressData) =>
-  api.put(`/user/addresses/${id}`, addressData);
+/**
+ * Atualizar status do pedido (para admin/restaurante)
+ * PUT /api/v1/orders/{orderId}/status
+ */
+export const updateOrderStatus = (orderId, status) => 
+  api.put(`/orders/${orderId}/status`, { status });
 
-export const deleteAddress = (id) =>
-  api.delete(`/user/addresses/${id}`);
+// === PAGAMENTOS ENDPOINTS ===
 
-
-// Favorites endpoints
-export const getFavorites = () =>
-  api.get('/user/favorites');
-
-export const addToFavorites = (restaurantId) =>
-  api.post('/user/favorites', { restaurant_id: restaurantId });
-
-export const removeFromFavorites = (restaurantId) =>
-  api.delete(`/user/favorites/${restaurantId}`);
-
-export const getProduct = (id) => api.get(`/products/${id}`);
-export const getRestaurant = (id) => api.get(`/restaurants/${id}`);
-export const getRestaurantProducts = (restaurantId) => api.get(`/restaurants/${restaurantId}/products`);
-
-// Products endpoints
-export const getProducts = (params = {}) => {
-  const queryString = new URLSearchParams(params).toString();
-  return api.get(`/products${queryString ? `?${queryString}` : ''}`);
-};
-
-// Auth
-export const login = (email, password) => api.post('/auth/login', { email, password });
-export const register = (userData) => api.post('/auth/register', userData);
-
-// Orders
-export const createOrder = (orderData) => api.post('/orders', orderData);
-export const getMyOrders = () => api.get('/orders');
-export const getOrder = (id) => api.get(`/orders/${id}`);
-
-// Search endpoints - Múltiplas estratégias de busca
-export const searchProducts = async (query, options = {}) => {
-  const searchParams = {
-    q: query,
-    search: query,
-    query: query,
-    ...options
-  };
-  
-  // Tentar diferentes endpoints de busca
-  const searchEndpoints = [
-    `/products/search`,
-    `/search/products`,
-    `/search`,
-  ];
-  
-  for (const endpoint of searchEndpoints) {
-    try {
-      console.log(`🔍 Tentando busca em: ${endpoint}`);
-      const response = await api.get(endpoint, { params: searchParams });
-      
-      if (response.data && (response.data.data || response.data.length > 0)) {
-        console.log(`✅ Busca bem-sucedida em: ${endpoint}`);
-        return response;
-      }
-    } catch (error) {
-      console.log(`❌ Falha na busca em ${endpoint}:`, error.response?.status);
-      continue;
-    }
-  }
- 
-  // Se nenhum endpoint específico funcionar, fazer busca manual
-  console.log('🔄 Fazendo busca manual...');
-  return performManualSearch(query);
-};
-
-// Busca manual como fallback
-const performManualSearch = async (query) => {
-  try {
-    const [productsResponse, restaurantsResponse] = await Promise.all([
-      getProducts().catch(() => ({ data: { data: [] } })),
-      getRestaurants().catch(() => ({ data: { data: [] } }))
-    ]);
-    
-    const products = productsResponse.data.data || [];
-    const restaurants = restaurantsResponse.data.data || [];
-    
-    const queryLower = query.toLowerCase();
-    
-    // Buscar produtos
-    const matchingProducts = products.filter(product => 
-      product.name?.toLowerCase().includes(queryLower) ||
-      product.description?.toLowerCase().includes(queryLower) ||
-      product.category?.toLowerCase().includes(queryLower)
-    );
-    
-    // Buscar restaurantes e seus produtos
-    const matchingRestaurants = restaurants.filter(restaurant =>
-      restaurant.name?.toLowerCase().includes(queryLower) ||
-      restaurant.category?.toLowerCase().includes(queryLower) ||
-      restaurant.description?.toLowerCase().includes(queryLower)
-    );
-    
-    // Buscar produtos de restaurantes específicos
-    let restaurantProducts = [];
-    for (const restaurant of restaurants.slice(0, 10)) { // Limitar para performance
-      try {
-        const productsResponse = await getRestaurantProducts(restaurant.id);
-        if (productsResponse?.data?.data) {
-          const matchingRestaurantProducts = productsResponse.data.data
-            .filter(product =>
-              product.name?.toLowerCase().includes(queryLower) ||
-              product.description?.toLowerCase().includes(queryLower)
-            )
-            .map(product => ({
-              ...product,
-              restaurant: restaurant
-            }));
-          
-          restaurantProducts = [...restaurantProducts, ...matchingRestaurantProducts];
-        }
-      } catch (error) {
-        console.log(`Erro ao buscar produtos do restaurante ${restaurant.id}:`, error);
-      }
-    }
-    
-    // Combinar todos os resultados
-    const allResults = [
-      ...matchingProducts,
-      ...matchingRestaurants.map(r => ({ ...r, type: 'restaurant' })),
-      ...restaurantProducts
-    ];
-    
-    // Remover duplicatas baseado no ID
-    const uniqueResults = allResults.filter((item, index, self) => 
-      index === self.findIndex(t => t.id === item.id && t.type === item.type)
-    );
-    
-    console.log(`🔍 Busca manual retornou ${uniqueResults.length} resultados`);
-    
-    return {
-      data: {
-        data: uniqueResults,
-        total: uniqueResults.length,
-        query: query
-      }
-    };
-    
-  } catch (error) {
-    console.log('❌ Erro na busca manual:', error);
-    throw error;
-  }
-};
-
-// Busca avançada com filtros
-export const advancedSearch = async (searchParams) => {
-  const {
-    query,
-    category,
-    restaurant_id,
-    min_price,
-    max_price,
-    sort_by = 'relevance',
-    limit = 20,
-    offset = 0
-  } = searchParams;
-  
-  try {
-    return await api.get('/search/advanced', {
-      params: {
-        q: query,
-        category,
-        restaurant_id,
-        min_price,
-        max_price,
-        sort_by,
-        limit,
-        offset
-      }
-    });
-  } catch (error) {
-    // Fallback para busca simples
-    return searchProducts(query);
-  }
-};
-
-// Busca por categoria
-export const searchByCategory = async (categoryId) => {
-  try {
-    return await api.get(`/categories/${categoryId}/products`);
-  } catch (error) {
-    // Fallback: buscar produtos e filtrar por categoria
-    const products = await getProducts();
-    const filteredProducts = products.data.data.filter(
-      product => product.category_id === categoryId
-    );
-    
-    return {
-      data: {
-        data: filteredProducts
-      }
-    };
-  }
-};
-
-// Suggestions/autocomplete
-export const getSearchSuggestions = async (query) => {
-  if (!query || query.length < 2) return { data: { data: [] } };
-  
-  try {
-    return await api.get('/search/suggestions', {
-      params: { q: query }
-    });
-  } catch (error) {
-    // Fallback: gerar sugestões baseadas em dados existentes
-    const [products, restaurants] = await Promise.all([
-      getProducts().catch(() => ({ data: { data: [] } })),
-      getRestaurants().catch(() => ({ data: { data: [] } }))
-    ]);
-    
-    const queryLower = query.toLowerCase();
-    const suggestions = [];
-    
-    // Sugestões de produtos
-    products.data.data.forEach(product => {
-      if (product.name.toLowerCase().includes(queryLower)) {
-        suggestions.push({
-          type: 'product',
-          text: product.name,
-          id: product.id
-        });
-      }
-    });
-    
-    // Sugestões de restaurantes
-    restaurants.data.data.forEach(restaurant => {
-      if (restaurant.name.toLowerCase().includes(queryLower)) {
-        suggestions.push({
-          type: 'restaurant',
-          text: restaurant.name,
-          id: restaurant.id
-        });
-      }
-    });
-    
-    return {
-      data: {
-        data: suggestions.slice(0, 8) // Limitar a 8 sugestões
-      }
-    };
-  }
-};
-// Payment APIs (só adicionar se não existirem)
+/**
+ * Iniciar pagamento M-Pesa
+ * POST /api/v1/orders/{orderId}/payment/mpesa
+ */
 export const initiateMpesaPayment = (orderId, paymentData) =>
   api.post(`/orders/${orderId}/payment/mpesa`, paymentData);
 
+/**
+ * Iniciar pagamento eMola
+ * POST /api/v1/orders/{orderId}/payment/emola
+ */
 export const initiateMolaPayment = (orderId, paymentData) =>
   api.post(`/orders/${orderId}/payment/emola`, paymentData);
 
+/**
+ * Confirmar pagamento em dinheiro
+ * POST /api/v1/orders/{orderId}/payment/cash
+ */
 export const confirmCashPayment = (orderId) =>
   api.post(`/orders/${orderId}/payment/cash`);
 
+/**
+ * Confirmar pagamento (genérico)
+ * POST /api/v1/orders/{orderId}/payment/confirm
+ */
+export const confirmPayment = (orderId, confirmationData) =>
+  api.post(`/orders/${orderId}/payment/confirm`, confirmationData);
+
+/**
+ * Verificar status do pagamento
+ * GET /api/v1/orders/{orderId}/payment/status
+ */
 export const checkPaymentStatus = (orderId) =>
   api.get(`/orders/${orderId}/payment/status`);
 
-// Push Notifications APIs (só adicionar se não existirem)
-export const registerPushToken = (token) =>
-  api.post('/user/push-token', { token });
+/**
+ * Listar métodos de pagamento disponíveis
+ * GET /api/v1/payment/methods
+ */
+export const getPaymentMethods = () =>
+  api.get('/payment/methods');
 
-export const unregisterPushToken = () =>
-  api.delete('/user/push-token');
+// === RESTAURANTES ENDPOINTS ===
 
+/**
+ * Listar restaurantes
+ * GET /api/v1/restaurants
+ */
+export const getRestaurants = (params = {}) => 
+  api.get('/restaurants', { params });
+
+/**
+ * Obter detalhes de um restaurante
+ * GET /api/v1/restaurants/{restaurantId}
+ */
+export const getRestaurant = (id) => 
+  api.get(`/restaurants/${id}`);
+
+/**
+ * Buscar restaurantes
+ * GET /api/v1/restaurants/search
+ */
+export const searchRestaurants = (query, params = {}) => 
+  api.get('/restaurants/search', { params: { q: query, ...params } });
+
+/**
+ * Obter menu de um restaurante
+ * GET /api/v1/restaurants/{restaurantId}/menu
+ */
+export const getRestaurantMenu = (restaurantId) => 
+  api.get(`/restaurants/${restaurantId}/menu`);
+
+/**
+ * Obter produtos de um restaurante (alias)
+ * GET /api/v1/restaurants/{restaurantId}/products
+ */
+export const getRestaurantProducts = (restaurantId) => 
+  api.get(`/restaurants/${restaurantId}/products`);
+
+/**
+ * Restaurantes em destaque
+ * GET /api/v1/restaurants/featured
+ */
+export const getFeaturedRestaurants = () => 
+  api.get('/restaurants/featured');
+
+/**
+ * Restaurantes próximos
+ * POST /api/v1/restaurants/nearby
+ */
+export const getNearbyRestaurants = (location) => 
+  api.post('/restaurants/nearby', location);
+
+// === CATEGORIAS ===
+
+/**
+ * Listar categorias
+ * GET /api/v1/categories
+ */
+export const getCategories = () => 
+  api.get('/categories');
+
+// === USUÁRIO/PERFIL ENDPOINTS ===
+
+/**
+ * Salvar token de push notification
+ * POST /api/v1/user/save-push-token
+ */
+export const savePushToken = (pushToken, platform = 'android') =>
+  api.post('/user/save-push-token', {
+    push_token: pushToken,
+    platform: platform
+  });
+
+/**
+ * Atualizar perfil
+ * PATCH /api/v1/user/profile
+ */
+export const updateProfile = (userData) =>
+  api.patch('/user/profile', userData);
+
+/**
+ * Listar endereços
+ * GET /api/v1/user/addresses
+ */
+export const getAddresses = () =>
+  api.get('/user/addresses');
+
+/**
+ * Adicionar endereço
+ * POST /api/v1/user/addresses
+ */
+export const addAddress = (addressData) =>
+  api.post('/user/addresses', addressData);
+
+/**
+ * Atualizar endereço
+ * PUT /api/v1/user/addresses/{addressId}
+ */
+export const updateAddress = (addressId, addressData) =>
+  api.put(`/user/addresses/${addressId}`, addressData);
+
+/**
+ * Remover endereço
+ * DELETE /api/v1/user/addresses/{addressId}
+ */
+export const deleteAddress = (addressId) =>
+  api.delete(`/user/addresses/${addressId}`);
+
+// === ENTREGA (DELIVERY) ENDPOINTS ===
+
+/**
+ * Listar pedidos disponíveis para entrega
+ * GET /api/v1/delivery/available-orders
+ */
+export const getAvailableDeliveryOrders = (page = 1) =>
+  api.get('/delivery/available-orders', { params: { page } });
+
+/**
+ * Aceitar pedido para entrega
+ * POST /api/v1/delivery/orders/{orderId}/accept
+ */
+export const acceptDeliveryOrder = (orderId) =>
+  api.post(`/delivery/orders/${orderId}/accept`);
+
+/**
+ * Listar minhas entregas
+ * GET /api/v1/delivery/my-deliveries
+ */
+export const getMyDeliveries = (page = 1) =>
+  api.get('/delivery/my-deliveries', { params: { page } });
+
+/**
+ * Atualizar status de entrega
+ * PATCH /api/v1/delivery/orders/{orderId}/status
+ */
+export const updateDeliveryStatus = (orderId, status, location = null) => {
+  const data = { status };
+  if (location) {
+    data.latitude = location.latitude;
+    data.longitude = location.longitude;
+  }
+  return api.patch(`/delivery/orders/${orderId}/status`, data);
+};
+
+/**
+ * Atualizar localização do entregador
+ * POST /api/v1/delivery/location
+ */
+export const updateDeliveryLocation = (location) =>
+  api.post('/delivery/location', {
+    latitude: location.latitude,
+    longitude: location.longitude
+  });
+
+// === NOTIFICAÇÕES ===
+
+/**
+ * Listar notificações
+ * GET /api/v1/notifications
+ */
 export const getNotifications = () =>
   api.get('/notifications');
 
+/**
+ * Marcar notificação como lida
+ * PATCH /api/v1/notifications/{notificationId}/read
+ */
 export const markNotificationAsRead = (notificationId) =>
   api.patch(`/notifications/${notificationId}/read`);
 
+/**
+ * Marcar todas as notificações como lidas
+ * PATCH /api/v1/notifications/mark-all-read
+ */
 export const markAllNotificationsAsRead = () =>
   api.patch('/notifications/mark-all-read');
 
+// === FUNÇÕES DE DEBUG E TESTE ===
 
+/**
+ * Testar conexão com API
+ * GET /api/v1/health
+ */
+export const testConnection = async () => {
+  try {
+    const response = await api.get('/health');
+    console.log('✅ Conexão com API funcionando:', response.data);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.log('❌ Erro de conexão com API:', error.message);
+    return { success: false, error: error.message };
+  }
+};
 
-export const savePushToken = async (pushToken) => {
-  const response = await api.post('/user/push-token', {
-    push_token: pushToken,
-    platform: Platform.OS
+/**
+ * Debug: verificar se token está configurado
+ */
+export const debugToken = async () => {
+  const stored = await AsyncStorage.getItem('@deliveryapp:token');
+  console.log('🔍 Debug Token:', {
+    inMemory: !!authToken,
+    inStorage: !!stored,
+    tokenMatch: authToken === stored
   });
-  return response;
 };
 
-export const getOrderDetails = async (orderId) => {
-  try {
-    const response = await api.get(`/orders/${orderId}`);
-    return response;
-  } catch (error) {
-    console.error('Erro ao obter detalhes do pedido:', error);
-    throw error;
-  }
-};
+// === ALIASES PARA COMPATIBILIDADE ===
+// (mantendo os nomes antigos que podem estar sendo usados)
 
-// Função para atualizar status do pedido (para admin/restaurante)
-export const updateOrderStatus = async (orderId, status) => {
-  try {
-    const response = await api.put(`/orders/${orderId}/status`, {
-      status: status
-    });
-    return response;
-  } catch (error) {
-    console.error('Erro ao atualizar status do pedido:', error);
-    throw error;
-  }
-};
+export const getMyOrders_alias = getMyOrders;
+export const getOrderDetails_alias = getOrderDetails;
+export const getOrder = getOrderDetails; // Alias comum
+export const createOrder_alias = createOrder;
 
-// Função para cancelar pedido
-export const cancelOrder = async (orderId, reason = '') => {
-  try {
-    const response = await api.post(`/orders/${orderId}/cancel`, {
-      reason: reason
-    });
-    return response;
-  } catch (error) {
-    console.error('Erro ao cancelar pedido:', error);
-    throw error;
-  }
-};
+// Exportar instância do axios para uso direto se necessário
+export { api };
 
-// Opção 2: Se você só tem a lista de pedidos (substitua 'orders' pelo seu endpoint)
-export const getOrderDetailsFromList = async (orderId) => {
-  try {
-    // Substitua '/orders' pelo seu endpoint de listagem
-    // Exemplos comuns: '/user/orders', '/orders', '/my-orders', '/user-orders'
-    const response = await api.get('/orders'); // ← AJUSTE AQUI PARA SEU ENDPOINT
-    
-    const orders = response.data?.data?.data || response.data?.data || response.data || [];
-    const order = orders.find(o => o.id == orderId);
-    
-    if (!order) {
-      throw new Error('Pedido não encontrado');
-    }
-    
-    return { data: order };
-  } catch (error) {
-    console.error('Erro ao obter detalhes do pedido:', error);
-    throw error;
-  }
-
-
-
+// Export default para compatibilidade
+const apiService = {
+  // Auth
+  login,
+  logout,
+  register,
+  getProfile,
+  setAuthToken,
+  removeAuthToken,
   
+  // Orders
+  getMyOrders,
+  createOrder,
+  getOrderDetails,
+  cancelOrder,
+  trackOrder,
+  updateOrderStatus,
+  
+  // Payments
+  initiateMpesaPayment,
+  initiateMolaPayment,
+  confirmCashPayment,
+  confirmPayment,
+  checkPaymentStatus,
+  getPaymentMethods,
+  
+  // Restaurants
+  getRestaurants,
+  getRestaurant,
+  searchRestaurants,
+  getRestaurantMenu,
+  getRestaurantProducts,
+  getFeaturedRestaurants,
+  getNearbyRestaurants,
+  
+  // Categories
+  getCategories,
+  
+  // User
+  savePushToken,
+  updateProfile,
+  getAddresses,
+  addAddress,
+  updateAddress,
+  deleteAddress,
+  
+  // Delivery
+  getAvailableDeliveryOrders,
+  acceptDeliveryOrder,
+  getMyDeliveries,
+  updateDeliveryStatus,
+  updateDeliveryLocation,
+  
+  // Notifications
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  
+  // Debug
+  testConnection,
+  debugToken
 };
 
-
-export default api;
+export default apiService;

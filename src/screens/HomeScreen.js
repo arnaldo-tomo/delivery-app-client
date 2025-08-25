@@ -327,7 +327,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </TouchableOpacity>
         <TouchableOpacity onPress={showTest}>
-    <Text>Testar Notificação</Text>
+
   </TouchableOpacity>
         {/* Promotional Banner */}
         <View style={styles.bannerContainer}>
