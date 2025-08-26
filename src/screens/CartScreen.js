@@ -89,46 +89,55 @@ export default function CartScreen({ navigation }) {
   };
 
   const handleCheckout = () => {
-    if (items.length === 0) {
-      Alert.alert('Carrinho vazio', 'Adicione itens ao carrinho para continuar');
-      return;
-    }
+  if (items.length === 0) {
+    Alert.alert('Carrinho vazio', 'Adicione itens ao carrinho para continuar');
+    return;
+  }
 
-    // Verificar se todos os itens são do mesmo restaurante
-    const restaurantIds = [...new Set(items.map(item => item.restaurant_id))];
-    if (restaurantIds.length > 1) {
-      Alert.alert(
-        'Múltiplos restaurantes',
-        'Você só pode fazer pedidos de um restaurante por vez. Deseja limpar o carrinho?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Limpar carrinho', onPress: clearCart }
-        ]
-      );
-      return;
-    }
+  // Verificar se todos os itens são do mesmo restaurante
+  const restaurantIds = [...new Set(items.map(item => item.restaurant_id))];
+  if (restaurantIds.length > 1) {
+    Alert.alert(
+      'Múltiplos restaurantes',
+      'Você só pode fazer pedidos de um restaurante por vez. Deseja limpar o carrinho?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Limpar carrinho', onPress: clearCart }
+      ]
+    );
+    return;
+  }
 
-    // Navegar para tela de checkout
-    navigation.navigate('Checkout', {
-      cartItems: items,
-      totalPrice: totalPrice,
-      restaurantId: restaurantIds[0]
-    });
-  };
+  const restaurantInfo = getRestaurantInfo();
+  if (!restaurantInfo) {
+    Alert.alert('Erro', 'Informações do restaurante não encontradas.');
+    return;
+  }
+
+  // Navegar para tela de checkout com o objeto restaurant completo
+  navigation.navigate('Checkout', {
+    cartItems: items,
+    totalPrice: totalPrice,
+    restaurant: restaurantInfo // Passar o objeto restaurant
+  });
+};
 
   const calculateItemTotal = (item) => {
     return (item.price * item.quantity).toFixed(2);
   };
 
-  const getRestaurantInfo = () => {
-    if (items.length === 0) return null;
-    
-    const firstItem = items[0];
-    return {
-      id: firstItem.restaurant_id,
-      name: firstItem.restaurant_name || 'Restaurante'
-    };
+const getRestaurantInfo = () => {
+  if (items.length === 0) return null;
+  const firstItem = items[0];
+  return {
+    id: firstItem.restaurant_id,
+    name: firstItem.restaurant_name || 'Restaurante',
+    address: firstItem.restaurant_address || 'Endereço não informado', // Adicione se disponível
+    delivery_fee: firstItem.restaurant_delivery_fee || 0, // Adicione se disponível
+    delivery_time_min: firstItem.restaurant_delivery_time_min || 30, // Adicione se disponível
+    delivery_time_max: firstItem.restaurant_delivery_time_max || 45 // Adicione se disponível
   };
+};
 
   if (items.length === 0) {
     return (
