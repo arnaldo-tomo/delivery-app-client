@@ -1,6 +1,6 @@
 // src/config/config.js
-export const API_BASE_URL = 'http://192.168.100.3:8001/api/v1';
-export const API_BASE_STORAGE = 'http://192.168.100.3:8001/storage/';
+export const API_BASE_URL = 'http://192.168.58.104:8000/api/v1';
+export const API_BASE_STORAGE = 'http://192.168.58.104:8000/storage/';
 
 // Configurações do app
 export const APP_CONFIG = {
