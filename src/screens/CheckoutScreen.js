@@ -18,7 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { orders } from '../services/api';
 import * as Location from 'expo-location';
-
+import * as api from '../services/api';
 const colors = {
   primary: '#FF6B35',
   primaryDark: '#FF4500',
@@ -294,53 +294,61 @@ useEffect(() => {
     return true;
   };
 
-const createOrder = async () => {
-  try {
-    console.log('🔍 Verificando restaurante:', { restaurant });
-    if (!restaurant || !restaurant.id) {
-      throw new Error('Restaurante não especificado ou inválido');
-    }
-    if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
-      throw new Error('Carrinho vazio ou inválido');
-    }
-    if (!cartItems.every(item => item && typeof item.id !== 'undefined')) {
-      throw new Error('Um ou mais itens do carrinho estão inválidos');
-    }
-
-    const orderData = prepareOrderData();
-    console.log('🚀 Criando pedido com localização real:', {
-      restaurant: restaurant.name,
-      delivery_coords: orderData.delivery_address,
-      items: orderData.items.length,
-      total: finalTotal.toFixed(2)
-    });
-    console.log('📦 Dados do pedido:', orderData);
-
-    console.log('🌐 Iniciando chamada à API...');
-    const response = await orders.create(orderData);
-    console.log('✅ Pedido criado:', response.data);
-    return response.data.data.order;
-  } catch (error) {
-    console.log('❌ Erro ao criar pedido:', error);
-    console.log('🔍 Detalhes do erro:', {
-      message: error.message,
-      stack: error.stack,
-      response: error.response
-    });
-    if (error.response) {
-      console.log('🔍 Detalhes do erro HTTP:', error.response.data);
-      if (error.response.status === 422) {
-        const validationErrors = error.response.data.errors;
-        const errorMessages = Object.values(validationErrors).flat();
-        throw new Error(errorMessages.join('\n'));
-      } else {
-        throw new Error(error.response.data?.message || 'Erro ao processar pedido');
+ const createOrder = async () => {
+    try {
+      console.log('🔄 Iniciando criação do pedido...');
+      
+      // Verificar se a função api.createOrder existe
+      if (!api || typeof api.createOrder !== 'function') {
+        console.error('❌ api.createOrder não está disponível');
+        throw new Error('Serviço de API não está disponível. Verifique a conexão.');
       }
-    } else {
-      throw new Error(error.message || 'Erro desconhecido ao criar pedido');
+
+      const orderData = {
+        restaurant_id: restaurant.id,
+        items: cartItems.map(item => ({
+          menu_item_id: item.id,
+          quantity: item.quantity,
+          special_instructions: item.notes || ''
+        })),
+        delivery_address: {
+          street: deliveryAddress,
+          city: user?.address ? user.address.split(',').pop().trim() : "Maputo",
+          latitude: parseFloat(user?.latitude || -25.9662),
+          longitude: parseFloat(user?.longitude || 32.5779),
+        },
+        payment_method: selectedPaymentMethod,
+        notes: deliveryNotes,
+      };
+
+      console.log('📝 Dados do pedido:', orderData);
+      
+      const response = await api.createOrder(orderData);
+      console.log('✅ Pedido criado:', response.data);
+      
+      return response.data.data?.order || response.data;
+    } catch (error) {
+      console.log('❌ Erro ao criar pedido:', [error.message]);
+      console.log('🔍 Detalhes do erro:', {
+        message: error.message,
+        response: error.response?.data,
+        stack: error.stack
+      });
+      
+      // Tratamento de erro mais específico
+      if (error.response?.status === 401) {
+        throw new Error('Sessão expirada. Por favor, faça login novamente.');
+      } else if (error.response?.status === 422) {
+        const errorMessages = error.response.data?.errors;
+        const firstError = Object.values(errorMessages || {})[0]?.[0];
+        throw new Error(firstError || 'Dados do pedido inválidos');
+      } else if (error.response?.status >= 500) {
+        throw new Error('Erro do servidor. Tente novamente em alguns minutos.');
+      }
+      
+      throw error;
     }
-  }
-};
+  };
 
 const prepareOrderData = () => {
   return {
