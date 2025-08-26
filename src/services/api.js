@@ -2,8 +2,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // CONFIGURAÇÃO DA BASE URL - AJUSTE PARA SEU SERVIDOR
-const API_BASE_URL = 'http://192.168.58.104:8000/api/v1'; // ← AJUSTE AQUI
-
+const API_BASE_URL ='http://192.168.100.3:8001/api/v1'; // Substitua pela sua URL
+this.baseURL = 'http://192.168.100.3:8001/api/v1'; // Substitua pela sua URL
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
